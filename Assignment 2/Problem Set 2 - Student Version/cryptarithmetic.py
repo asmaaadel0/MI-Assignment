@@ -3,6 +3,7 @@ import re
 from CSP import Assignment, Problem, UnaryConstraint, BinaryConstraint
 
 #TODO (Optional): Import any builtin library or define any helper function you want to use
+from itertools import product, combinations
 
 # This is a class to define for cryptarithmetic puzzles as CSPs
 class CryptArithmeticProblem(Problem):
@@ -48,261 +49,176 @@ class CryptArithmeticProblem(Problem):
         # problem.domains:      should be dictionary that maps each variable (str) to its domain (set of values)
         #                       For the letters, the domain can only contain integers in the range [0,9].
         # problem.constaints:   should contain a list of constraint (either unary or binary constraints).
-        # LSH0_chars = [char for char in LHS0]
-        # LSH1_chars = [char for char in LHS1]
-        
-        letters = set(LHS0 + LHS1 + RHS)
-        
-        problem.variables = list(letters)
-        problem.variables.extend(set(f"carry{i}" for i in range(max(len(LHS0), len(LHS1)))))
-        
-        all_variables = list(letters) + list(f"carry{i}" for i in range(max(len(LHS0), len(LHS1))))
-        
+
+        problem.variables = []
         problem.domains = {}
         problem.constraints = []
         
-        for var in all_variables:
-            if var == LHS0[0] or var == LHS1[0] or var == RHS[0]:
-                problem.domains[var] = set(range(1, 10))
-            elif var.startswith("carry"):
-                problem.domains[var] = set(range(2))
-            else:
-                problem.domains[var] = set(range(0, 10))
+        # assign variables
+        letters = list(set(LHS0 + LHS1 + RHS))
+        carries = [f'carry{i}' for i in range(len(RHS) - 1 )]
+        problem.variables = letters + carries
 
+        # assign domains
+        for var in letters:
+            problem.domains[var] = set(range(1, 10)) if var == LHS0[0] or var == LHS1[0] or var == RHS[0] else set(range(10))
 
-        for variable in problem.variables:
-            problem.constraints.append(UnaryConstraint(variable, lambda value: value in problem.domains[variable]))
+        for c in carries:
+            problem.domains[c] = set(range(2))
         
-        
-        for var1 in all_variables:
-            for var2 in all_variables:
-                if var1 != var2:
-                    problem.constraints.append(BinaryConstraint((var1, var2), lambda a, b: a != b))
-        
-        
-        for i in range(len(RHS)):
-            
-            # A + B = C + 10 C1
-            # Add the first character
+        # No two letters have the same value
+        for val1, val2 in combinations(letters, 2):
+            problem.constraints.append(BinaryConstraint((val1, val2), lambda a, b: a != b))
+
+        for i in range(len(RHS)): 
+            # A + B = C + 10*carry
             if i == 0:
+
                 aux1 = (LHS0[-(i + 1)], LHS1[-(i + 1)])
-                aux2 = (RHS[-(i + 1)], f"carry{i}")
-                problem.variables.extend([aux1, aux2])
-                
-                domain = set()
-                for x in problem.domains[LHS0[-(i + 1)]]:
-                    for y in problem.domains[LHS1[-(i + 1)]]:
-                        domain.add((x, y))
+                aux2 = (RHS[-(i + 1)], carries[i])
+
+                # Add auxiliaries to variables
+                problem.variables.append(aux1)
+                problem.variables.append(aux2) 
+
+                # Add domains for auxiliaries
+                domain = set(product(problem.domains[LHS0[-(i + 1)]], problem.domains[LHS1[-(i + 1)]]))
                 problem.domains[aux1] = domain
-                
-                domain = set()
-                for x in problem.domains[RHS[-(i + 1)]]:
-                    for y in problem.domains[f"carry{i}"]:
-                        domain.add((x, y))
+                domain = set(product(problem.domains[RHS[-(i + 1)]], problem.domains[carries[i]]))
                 problem.domains[aux2] = domain
-
-                problem.constraints.append(BinaryConstraint((LHS0[-(i + 1)], aux1), lambda a, b: a == b[0]))
-                problem.constraints.append(BinaryConstraint((LHS1[-(i + 1)], aux1), lambda a, b: a == b[1]))
-                problem.constraints.append(BinaryConstraint((RHS[-(i + 1)], aux2), lambda a, b: a == b[0]))
-                problem.constraints.append(BinaryConstraint((f"carry{i}", aux2), lambda a, b: a == b[1]))
-                problem.constraints.append(BinaryConstraint((aux1, aux2), lambda a, b: a[0] + a[1] == b[0] + 10 * b[1]))
                 
-            # Constraint for the first character
-            
-            # Constraints for the middle characters
+                # Add Binary Constraints
+                problem.constraints.append(BinaryConstraint((LHS0[-(i + 1)], aux1), lambda a, b: a == b[0])) # first  item in aux1 = LHS0[-(i + 1)]
+                problem.constraints.append(BinaryConstraint((LHS1[-(i + 1)], aux1), lambda a, b: a == b[1])) # second item in aux1 = LHS0[-(i + 1)]
+                problem.constraints.append(BinaryConstraint((RHS[-(i + 1)], aux2), lambda a, b: a == b[0]))  # first  item in aux2 = RHS[-(i + 1)]
+                problem.constraints.append(BinaryConstraint((carries[i], aux2), lambda a, b: a == b[1]))     # second item in aux2 = carries[i]
+                problem.constraints.append(BinaryConstraint((aux1, aux2), lambda a, b: a[0] + a[1]  == b[0] + 10 * b[1])) # A + B = C + 10*carry0
+
             elif i == len(RHS) - 1:
+                # A + B + carry0 = C 
+                if i < len(LHS0) and i < len(LHS1):
+
+                    aux1 = (LHS0[-(i + 1)], LHS1[-(i + 1)], carries[i - 1])
+                    problem.variables.append(aux1) 
+
+                    # Add domains for auxiliaries
+                    domain = set(product(
+                        problem.domains[LHS0[-(i + 1)]],
+                        problem.domains[LHS1[-(i + 1)]],
+                        problem.domains[carries[i - 1]]
+                    ))
+                    problem.domains[aux1] = domain
+                    
+                    # Add Binary Constraints
+                    problem.constraints.append(BinaryConstraint((LHS0[-(i + 1)], aux1), lambda a, b: a == b[0])) # first  item in aux1 = LHS0[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((LHS1[-(i + 1)], aux1), lambda a, b: a == b[1])) # second item in aux1 = LHS1[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((carries[i - 1], aux1), lambda a, b: a == b[2]))   # first  item in aux2 = carries[i - 1]
+                    problem.constraints.append(BinaryConstraint((aux1, RHS[-(i + 1)]), lambda a, b: a[0] + a[1] + a[2] == b)) # A + B + carry0 = C 
                 
-                if i < len(LHS0) and i < len(LHS1):
-                    # A + B + C1 = C 
-                    aux1 = (LHS0[-(i + 1)], LHS1[-(i + 1)], f"carry{i-1}")
-                    print(aux1)
-                    
-                    problem.variables.append(aux1) 
-
-                    dom=set()
-                    for x in problem.domains[LHS0[-(i + 1)]]:
-                        for y in problem.domains[LHS1[-(i + 1)]]:
-                            for z in problem.domains[f"carry{i-1}"]:
-                                    dom.add((x,y,z))
-                    problem.domains[aux1] = dom
-                    
-                    binary_constraint = BinaryConstraint((LHS0[-(i + 1)],aux1), lambda a, b: a == b[0])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((LHS1[-(i + 1)],aux1), lambda a, b: a == b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((f"carry{i-1}",aux1), lambda a, b: a == b[2])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((aux1,RHS[-(i + 1)]), lambda a, b: a[0] + a[1] + a[2] == b)
-                    problem.constraints.append(binary_constraint)
-
-
+                # carry1 + A = C
                 elif i < len(LHS0) and i >= len(LHS1):
-                    # C1 + A     = C
 
-                    aux1 = (LHS0[-(i + 1)], f"carry{i-1}")
-                    
+                    aux1 = (LHS0[-(i + 1)], carries[i - 1])
                     problem.variables.append(aux1) 
 
-                    dom=set()
-                    for x in problem.domains[LHS0[-(i + 1)]]:
-                        for y in problem.domains[f"carry{i-1}"]:
-                                    dom.add((x,y))
-                    problem.domains[aux1] = dom
+                    # Add domains for auxiliaries
+                    domain = set(product(problem.domains[LHS0[-(i + 1)]], problem.domains[carries[i - 1]]))
+                    problem.domains[aux1] = domain
                     
-                    binary_constraint = BinaryConstraint((LHS0[-(i + 1)],aux1), lambda a, b: a == b[0])
-                    problem.constraints.append(binary_constraint)
+                    # Add Binary Constraints
+                    problem.constraints.append(BinaryConstraint((LHS0[-(i + 1)], aux1), lambda a, b: a == b[0])) # first  item in aux1 = LHS0[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((carries[i - 1], aux1), lambda a, b: a == b[1])) # second item in aux1 = carries[i - 1]
+                    problem.constraints.append(BinaryConstraint((aux1, RHS[-(i + 1)]), lambda a, b: a[0] + a[1] == b)) # carry1 + A = C
 
-                    binary_constraint = BinaryConstraint((f"carry{i-1}",aux1), lambda a, b: a == b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((aux1,RHS[-(i + 1)]), lambda a, b: a[0] + a[1] == b)
-                    problem.constraints.append(binary_constraint)
-
-                    # continue
-
-                elif i >= len(LHS0) and i < len(LHS1):
-                    # C1 + B     = C
-
-                    aux1 = (LHS1[-(i + 1)], f"carry{i-1}")
-                    
+                # carry1 + B = C
+                elif i >= len(LHS0) and i<len(LHS1):
+                    aux1 = (LHS1[-(i + 1)], carries[i - 1])
                     problem.variables.append(aux1) 
 
-                    dom=set()
-                    for x in problem.domains[LHS1[-(i + 1)]]:
-                        for y in problem.domains[f"carry{i-1}"]:
-                                    dom.add((x,y))
-                    problem.domains[aux1] = dom
+                    # Add domains for auxiliaries
+                    domain = set(product(problem.domains[LHS1[-(i + 1)]], problem.domains[carries[i - 1]]))
+                    problem.domains[aux1] = domain
                     
-                    binary_constraint = BinaryConstraint((LHS1[-(i + 1)],aux1), lambda a, b: a == b[0])
-                    problem.constraints.append(binary_constraint)
+                    # Add Binary Constraints
+                    problem.constraints.append(BinaryConstraint((LHS1[-(i + 1)], aux1), lambda a, b: a == b[0])) # first  item in aux1 = LHS1[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((carries[i - 1], aux1), lambda a, b: a == b[1])) # second item in aux1 = carries[i - 1]
+                    problem.constraints.append(BinaryConstraint((aux1, RHS[-(i + 1)]), lambda a, b: a[0] + a[1] + a[2] == b)) # carry1 + B = C
 
-                    binary_constraint = BinaryConstraint((f"carry{i-1}",aux1), lambda a, b: a == b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((aux1,RHS[-(i + 1)]), lambda a, b: a[0] + a[1] + a[2] == b)
-                    problem.constraints.append(binary_constraint)
-
-                    # continue
-
+                # carry1 = C
                 elif i >= len(LHS0) and i >= len(LHS1):
-                    # C1 = C
-                    binary_constraint = BinaryConstraint((f"carry{i-1}",RHS[-(i + 1)]), lambda a, b: a == b)
-                    problem.constraints.append(binary_constraint)
-
-                    # continue
-            
+                    problem.constraints.append(BinaryConstraint((carries[i - 1], RHS[-(i + 1)]), lambda a, b: a == b)) # carry1 = C
+ 
             else: 
+                # A + B + carry1 = C + 10*carry2
                 if i < len(LHS0) and i < len(LHS1):
-                    # A + B + C1 = C + 10 C2
-                    aux1 = (LHS0[-(i + 1)], LHS0[-(i + 1)], f"carry{i-1}")
-                    aux2 = (RHS[-(i + 1)], f"carry{i}")
+                    aux1 = (LHS0[-(i + 1)], LHS1[-(i + 1)], carries[i - 1])
+                    aux2 = (RHS[-(i + 1)], carries[i])
 
                     problem.variables.append(aux1) 
                     problem.variables.append(aux2) 
 
-                    dom=set()
-                    for x in problem.domains[LHS0[-(i + 1)]]:
-                        for y in problem.domains[LHS0[-(i + 1)]]:
-                            for z in problem.domains[f"carry{i-1}"]:
-                                dom.add((x,y,z))
-                    problem.domains[aux1] = dom
+                    # Add domains for auxiliaries
+                    domain = set(product(
+                        problem.domains[LHS0[-(i + 1)]],
+                        problem.domains[LHS1[-(i + 1)]],
+                        problem.domains[carries[i - 1]]
+                    ))
+                    problem.domains[aux1] = domain
 
-                    dom=set()
-                    for x in problem.domains[RHS[-(i + 1)]]:
-                        for y in problem.domains[f"carry{i}"]:
-                            dom.add((x,y))
-                    problem.domains[aux2] = dom
+                    domain = {(x, y) for x in problem.domains[RHS[-(i + 1)]] for y in problem.domains[carries[i]]}
+                    problem.domains[aux2] = domain
 
-
-                    binary_constraint = BinaryConstraint((LHS0[-(i + 1)],aux1), lambda a, b: a == b[0])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((LHS0[-(i + 1)],aux1), lambda a, b: a == b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((f"carry{i-1}",aux1), lambda a, b: a == b[2])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((RHS[-(i + 1)],aux2), lambda a, b: a  == b[0])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((f"carry{i}",aux2), lambda a, b: a  == b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((aux1,aux2), lambda a, b: a[0] + a[1] + a[2] == b[0] + 10 * b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    # continue
-
-
+                    # Add Binary Constraints
+                    problem.constraints.append(BinaryConstraint((LHS0[-(i + 1)], aux1), lambda a, b: a == b[0])) # first  item in aux1 = LHS0[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((LHS1[-(i + 1)], aux1), lambda a, b: a == b[1])) # second item in aux1 = LHS1[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((carries[i - 1], aux1), lambda a, b: a == b[2])) # third  item in aux1 = carries[i - 1]
+                    problem.constraints.append(BinaryConstraint((RHS[-(i + 1)], aux2), lambda a, b: a  == b[0])) # first  item in aux2 = RHS[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((carries[i], aux2), lambda a, b: a  == b[1]))    # second item in aux2 = carries[i]
+                    problem.constraints.append(BinaryConstraint((aux1, aux2), lambda a, b: a[0] + a[1] + a[2] == b[0] + 10 * b[1])) # A + B + carry1 = C + 10*carry2
                 
+                # A (or) B + carry1 = C + 10 carry2
                 else:
+                    # A + C1 = C + 10 C2
                     if i < len(LHS0) and i>=len(LHS1):
-                        # A + C1     = C + 10 C2
-                        aux1 = (LHS0[-(i + 1)] , f"carry{i-1}")
-                        aux2 = (RHS[-(i + 1)] , f"carry{i}")
+                        aux1 = (LHS0[-(i + 1)] , carries[i - 1])
+                        aux2 = (RHS[-(i + 1)] , carries[i])
 
                         problem.variables.append(aux1)
                         problem.variables.append(aux2) 
 
-                        dom=set()
-                        for x in problem.domains[LHS0[-(i + 1)]]:
-                            for y in problem.domains[f"carry{i-1}"]:
-                                dom.add((x,y))
-                        problem.domains[aux1] = dom
+                        # Add domains for auxiliaries
+                        domain = {(x, y) for x in problem.domains[LHS0[-(i + 1)]] for y in problem.domains[carries[i - 1]]}
+                        problem.domains[aux1] = domain
+                        domain = {(x, y) for x in problem.domains[RHS[-(i + 1)]] for y in problem.domains[carries[i]]}
+                        problem.domains[aux2] = domain
 
-                        dom=set()
-                        for x in problem.domains[RHS[-(i + 1)]]:
-                            for y in problem.domains[f"carry{i}"]:
-                                dom.add((x,y))
-                        problem.domains[aux2] = dom
+                        # Add Binary Constraints
+                        problem.constraints.append(BinaryConstraint((LHS0[-(i + 1)],aux1), lambda a, b: a == b[0])) # first item in aux1 = LHS0[-(i + 1)]
 
-                        binary_constraint = BinaryConstraint((LHS0[-(i + 1)],aux1), lambda a, b: a == b[0])
-                        problem.constraints.append(binary_constraint)
-
-                        # continue
-
+                    # B + carry1 = C + 10 carry2
                     elif i >= len(LHS0) and i<len(LHS1):
-                        # B + C1     = C + 10 C2
-                        aux1 = (LHS0[-(i + 1)] , f"carry{i-1}")
-                        aux2 = (RHS[-(i + 1)] , f"carry{i}")
+                        aux1 = (LHS1[-(i + 1)] , carries[i - 1])
+                        aux2 = (RHS[-(i + 1)] , carries[i])
 
                         problem.variables.append(aux1)
                         problem.variables.append(aux2) 
-
-                        dom=set()
-                        for x in problem.domains[LHS0[-(i + 1)]]:
-                            for y in problem.domains[f"carry{i-1}"]:
-                                dom.add((x,y))
-                        problem.domains[aux1] = dom
-
-                        dom=set()
-                        for x in problem.domains[RHS[-(i + 1)]]:
-                            for y in problem.domains[f"carry{i}"]:
-                                dom.add((x,y))
-                        problem.domains[aux2] = dom
+                        
+                        # Add domains for auxiliaries
+                        domain = {(x, y) for x in problem.domains[LHS1[-(i + 1)]] for y in problem.domains[carries[i - 1]]}
+                        problem.domains[aux1] = domain
+                        domain = {(x, y) for x in problem.domains[RHS[-(i + 1)]] for y in problem.domains[carries[i]]}
+                        problem.domains[aux2] = domain
 
 
-                        binary_constraint = BinaryConstraint((LHS0[-(i + 1)],aux1), lambda a, b: a == b[0])
-                        problem.constraints.append(binary_constraint)
+                        # Add Binary Constraints
+                        problem.constraints.append(BinaryConstraint((LHS1[-(i + 1)],aux1), lambda a, b: a == b[0])) # first item in aux1 = LHS1[-(i + 1)]
 
-                    binary_constraint = BinaryConstraint((f"carry{i-1}",aux1), lambda a, b: a == b[1])
-                    problem.constraints.append(binary_constraint)
+                    problem.constraints.append(BinaryConstraint((carries[i - 1], aux1), lambda a, b: a == b[1])) # second item in aux1 = carries[i - 1]
+                    problem.constraints.append(BinaryConstraint((RHS[-(i + 1)], aux2), lambda a, b: a == b[0]))  # first  item in aux2 = RHS[-(i + 1)]
+                    problem.constraints.append(BinaryConstraint((carries[i], aux2), lambda a, b: a == b[1]))     # second item in aux2 = carries[i]
+                    problem.constraints.append(BinaryConstraint((aux1,aux2), lambda a, b: a[0] + a[1]  == b[0] + 10 * b[1])) # A (or) B + carry1 = C + 10 carry2
 
-                    binary_constraint = BinaryConstraint((RHS[-(i + 1)],aux2), lambda a, b: a == b[0])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((f"carry{i}",aux2), lambda a, b: a == b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    binary_constraint = BinaryConstraint((aux1,aux2), lambda a, b: a[0] + a[1]  == b[0] + 10 * b[1])
-                    problem.constraints.append(binary_constraint)
-
-                    # continue
-        
+                    
         return problem
 
     # Read a cryptarithmetic puzzle from a file
@@ -310,3 +226,5 @@ class CryptArithmeticProblem(Problem):
     def from_file(path: str) -> "CryptArithmeticProblem":
         with open(path, 'r') as f:
             return CryptArithmeticProblem.from_text(f.read())
+
+
