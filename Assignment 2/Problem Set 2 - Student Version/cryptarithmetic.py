@@ -107,6 +107,7 @@ class CryptArithmeticProblem(Problem):
                         problem.domains[LHS1[-(i + 1)]],
                         problem.domains[carries[i - 1]]
                     ))
+                    
                     problem.domains[aux1] = domain
                     
                     # Add Binary Constraints
@@ -165,7 +166,7 @@ class CryptArithmeticProblem(Problem):
                     ))
                     problem.domains[aux1] = domain
 
-                    domain = {(x, y) for x in problem.domains[RHS[-(i + 1)]] for y in problem.domains[carries[i]]}
+                    domain = set(product(problem.domains[RHS[-(i + 1)]], problem.domains[carries[i]]))
                     problem.domains[aux2] = domain
 
                     # Add Binary Constraints
@@ -187,9 +188,9 @@ class CryptArithmeticProblem(Problem):
                         problem.variables.append(aux2) 
 
                         # Add domains for auxiliaries
-                        domain = {(x, y) for x in problem.domains[LHS0[-(i + 1)]] for y in problem.domains[carries[i - 1]]}
+                        domain = set(product(problem.domains[LHS0[-(i + 1)]], problem.domains[carries[i - 1]]))
                         problem.domains[aux1] = domain
-                        domain = {(x, y) for x in problem.domains[RHS[-(i + 1)]] for y in problem.domains[carries[i]]}
+                        domain = set(product(problem.domains[RHS[-(i + 1)]], problem.domains[carries[i]]))
                         problem.domains[aux2] = domain
 
                         # Add Binary Constraints
@@ -204,11 +205,10 @@ class CryptArithmeticProblem(Problem):
                         problem.variables.append(aux2) 
                         
                         # Add domains for auxiliaries
-                        domain = {(x, y) for x in problem.domains[LHS1[-(i + 1)]] for y in problem.domains[carries[i - 1]]}
+                        domain = set(product(problem.domains[LHS1[-(i + 1)]], problem.domains[carries[i - 1]]))
                         problem.domains[aux1] = domain
-                        domain = {(x, y) for x in problem.domains[RHS[-(i + 1)]] for y in problem.domains[carries[i]]}
+                        domain = set(product(problem.domains[RHS[-(i + 1)]], problem.domains[carries[i]]))
                         problem.domains[aux2] = domain
-
 
                         # Add Binary Constraints
                         problem.constraints.append(BinaryConstraint((LHS1[-(i + 1)],aux1), lambda a, b: a == b[0])) # first item in aux1 = LHS1[-(i + 1)]
