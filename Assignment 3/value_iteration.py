@@ -22,27 +22,52 @@ class ValueIterationAgent(Agent[S, A]):
     # if the state is terminal, return 0
     def compute_bellman(self, state: S) -> float:
         #TODO: Complete this function
-        NotImplemented()
+        # NotImplemented()
+        if self.mdp.is_terminal(state):
+            return 0
+        utility = max(sum( self.mdp.get_successor(state, action)[next_state] * (self.mdp.get_reward(state, action, next_state) + self.discount_factor * self.utilities[next_state]) for next_state in self.mdp.get_successor(state, action) ) for action in self.mdp.get_actions(state) )
+        return utility
     
     # Applies a single utility update
     # then returns True if the utilities has converged (the maximum utility change is less or equal the tolerance)
     # and False otherwise
     def update(self, tolerance: float = 0) -> bool:
         #TODO: Complete this function
-        NotImplemented()
+        # NotImplemented()
+        utility_updates = {}
+        for state in self.mdp.get_states():
+            utility_updates[state] = self.compute_bellman(state)
+
+        max_change = max(abs(utility_updates[state] - self.utilities[state]) for state in self.mdp.get_states())
+
+        for state in self.mdp.get_states():
+            self.utilities[state] = utility_updates[state]
+
+        return max_change <= tolerance
 
     # This function applies value iteration starting from the current utilities stored in the agent and stores the new utilities in the agent
     # NOTE: this function does incremental update and does not clear the utilities to 0 before running
     # In other words, calling train(M) followed by train(N) is equivalent to just calling train(N+M)
     def train(self, iterations: Optional[int] = None, tolerance: float = 0) -> int:
         #TODO: Complete this function to apply value iteration for the given number of iterations
-        NotImplemented()
+        # NotImplemented()
+        iteration = 0
+        while iterations is None or iteration < iterations:
+            iteration += 1
+            if self.update(tolerance):
+                break
+        return iteration
     
     # Given an environment and a state, return the best action as guided by the learned utilities and the MDP
     # If the state is terminal, return None
     def act(self, env: Environment[S, A], state: S) -> A:
         #TODO: Complete this function
-        NotImplemented()
+        # NotImplemented()
+
+        if self.mdp.is_terminal(state):
+            return None   
+        action = max(self.mdp.get_actions(state), key = lambda action: sum( self.mdp.get_successor(state, action)[next_state] * (self.mdp.get_reward(state, action, next_state) + self.discount_factor * self.utilities[next_state]) for next_state in self.mdp.get_successor(state, action) ))
+        return action
     
     # Save the utilities to a json file
     def save(self, env: Environment[S, A], file_path: str):
