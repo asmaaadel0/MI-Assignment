@@ -79,15 +79,9 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
         # TODO add your code here
         # IMPORTANT NOTE: Define the snake before calling generate_random_apple
         # NotImplemented()
-        if seed is not None:
-            self.rng.seed(seed)  # Initialize the random generator using the seed
 
-        # Initialize the snake at the center of the grid with length 1 and moving LEFT
-        center_x, center_y = self.width // 2, self.height // 2
-        self.snake = [Point(center_x, center_y)]
+        self.snake = [Point(self.width // 2, self.height // 2)]
         self.direction = Direction.LEFT
-
-        # Generate a random apple position that is not on a cell occupied by the snake's body
         self.apple = self.generate_random_apple()
 
         return SnakeObservation(tuple(self.snake), self.direction, self.apple)
@@ -103,10 +97,15 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
         # a snake can wrap around the grid
         # NOTE: The action order does not matter
         # NotImplemented()
-        possible_actions = [Direction.RIGHT, Direction.UP, Direction.LEFT, Direction.DOWN]
-        opposite_direction = Direction.get_opposite(self.direction)
-
-        return [action for action in possible_actions if action != opposite_direction]
+        # Define the opposite direction for each direction
+        opposite_direction = {
+            Direction.LEFT: Direction.RIGHT, 
+            Direction.RIGHT: Direction.LEFT,
+            Direction.UP: Direction.DOWN, 
+            Direction.DOWN: Direction.UP
+        }
+        return [d for d in [Direction.RIGHT, Direction.LEFT, Direction.UP, Direction.DOWN, Direction.NONE] 
+            if d != opposite_direction[self.direction] and d != self.direction]
 
 
     def step(self, action: Direction) -> \
@@ -126,48 +125,44 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
         """
         # TODO Complete the following function
         # NotImplemented()
-        # Update the direction of the snake based on the action
-        self.direction = action
+        # Update direction
+        if action != self.direction and action != Direction.NONE:
+            self.direction = action
 
-        # Move the snake in the current direction
+        # Move snake
         head = self.snake[0]
-        new_head = head.move(self.direction)
+        if self.direction == Direction.LEFT:
+            new_head = Point((head.x - 1) % self.width, head.y)
+        elif self.direction == Direction.RIGHT:
+            new_head = Point((head.x + 1) % self.width, head.y)
+        elif self.direction == Direction.UP:
+            new_head = Point(head.x, (head.y - 1) % self.height)
+        elif self.direction == Direction.DOWN:
+            new_head = Point(head.x, (head.y + 1) % self.height)
 
-        # Check if the new head position is valid (within the grid boundaries)
-        if not (0 <= new_head.x < self.width and 0 <= new_head.y < self.height):
-            return self.reset(), -100, True, {}
-
-        # Check if the new head position collides with the snake's body
-        if new_head in self.snake:
-            return self.reset(), -100, True, {}
-
-        # Update the snake's body with the new head
         self.snake.insert(0, new_head)
-
-        # Check if the snake ate the apple
-        if new_head == self.apple:
-            # Generate a new random apple position and increase the snake's length
-            self.apple = self.generate_random_apple()
-            reward = 1
-        else:
-            # Remove the last segment of the snake's tail
-            self.snake.pop()
-            reward = 0
-
-        # Check if the snake covers all cells, indicating a win
-        if len(self.snake) == self.width * self.height:
-            return self.reset(), 100, True, {}
-
-        # Return the updated state, reward, and whether the episode is done
-        observation = SnakeObservation(tuple(self.snake), self.direction, self.apple)
+        reward = 0
         done = False
-        return observation, reward, done, {}
 
-        # done = False
-        # reward = 0
-        # observation = SnakeObservation(tuple(self.snake), self.direction, self.apple)
-        
-        # return observation, reward, done, {}
+        # Check for eating apple
+        if new_head == self.apple:
+            reward += 1
+            self.apple = self.generate_random_apple() if len(self.snake) < self.width * self.height else None
+        else:
+            self.snake.pop()
+
+        # Check for collision with itself
+        if len(self.snake) != len(set(self.snake)):
+            reward -= 100
+            done = True
+
+        # Check for winning condition
+        if not self.apple:
+            reward += 100
+            done = True
+
+        observation = SnakeObservation(tuple(self.snake), self.direction, self.apple)
+        return observation, reward, done, {}
 
     ###########################
     #### Utility Functions ####
