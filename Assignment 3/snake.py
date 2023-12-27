@@ -3,7 +3,6 @@ from mdp import MarkovDecisionProcess
 from environment import Environment
 from mathutils import Point, Direction
 from helpers.mt19937 import RandomGenerator
-from helpers.utils import NotImplemented
 import json
 from dataclasses import dataclass
 
@@ -78,8 +77,6 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
             self.rng.seed(seed) # Initialize the random generator using the seed
         # TODO add your code here
         # IMPORTANT NOTE: Define the snake before calling generate_random_apple
-        # NotImplemented()
-
         # Initialize the snake's position to the center of the grid
         self.snake = [Point(self.width // 2, self.height // 2)]
 
@@ -102,7 +99,6 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
         # TODO add your code here
         # a snake can wrap around the grid
         # NOTE: The action order does not matter
-        # NotImplemented()
         # Define the opposite direction for each direction
         opposite_direction = {
             Direction.LEFT: Direction.RIGHT, 
@@ -131,7 +127,6 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
             - info (Dict): A dictionary containing any extra information. You can keep it empty.
         """
         # TODO Complete the following function
-        # NotImplemented()
         # Update the snake's direction if the action is not NONE and not the current direction
         if action != self.direction and action != Direction.NONE:
             self.direction = action

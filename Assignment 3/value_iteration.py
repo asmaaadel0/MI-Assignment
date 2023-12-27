@@ -3,7 +3,6 @@ from agents import Agent
 from environment import Environment
 from mdp import MarkovDecisionProcess, S, A
 import json
-from helpers.utils import NotImplemented
 
 # This is a class for a generic Value Iteration agent
 class ValueIterationAgent(Agent[S, A]):
@@ -22,7 +21,6 @@ class ValueIterationAgent(Agent[S, A]):
     # if the state is terminal, return 0
     def compute_bellman(self, state: S) -> float:
         #TODO: Complete this function
-        # NotImplemented()
         if self.mdp.is_terminal(state):
             return 0
         utility = max(sum( self.mdp.get_successor(state, action)[next_state] * (self.mdp.get_reward(state, action, next_state) + self.discount_factor * self.utilities[next_state]) for next_state in self.mdp.get_successor(state, action) ) for action in self.mdp.get_actions(state) )
@@ -33,7 +31,6 @@ class ValueIterationAgent(Agent[S, A]):
     # and False otherwise
     def update(self, tolerance: float = 0) -> bool:
         #TODO: Complete this function
-        # NotImplemented()
         """
         Updates the utilities of all states in the Markov Decision Process (MDP) based on the Bellman equation.
 
@@ -71,7 +68,6 @@ class ValueIterationAgent(Agent[S, A]):
     # In other words, calling train(M) followed by train(N) is equivalent to just calling train(N+M)
     def train(self, iterations: Optional[int] = None, tolerance: float = 0) -> int:
         #TODO: Complete this function to apply value iteration for the given number of iterations
-        # NotImplemented()
         """
         Applies value iteration to update the agent's utilities for a specified number of iterations or until convergence.
 
@@ -107,7 +103,6 @@ class ValueIterationAgent(Agent[S, A]):
     # If the state is terminal, return None
     def act(self, env: Environment[S, A], state: S) -> A:
         #TODO: Complete this function
-        # NotImplemented()
         """
             Determines the best action to take in a given state based on the current utilities and the Markov Decision Process (MDP).
 
